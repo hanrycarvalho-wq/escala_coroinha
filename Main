@@ -1,0 +1,1620 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class SupabaseConfig {
+  static const String url = 'https://hniqvfsauldcwujlpzuo.supabase.co';
+  static const String publishableKey =
+      'sb_publishable_kvR2UON1jz8GEgKT6ULG6Q_g1o70mr8';
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint('🛑 Erro Flutter: ${details.exception}');
+  };
+
+  try {
+    final cleanUrl = SupabaseConfig.url.trim();
+    final cleanKey = SupabaseConfig.publishableKey.trim();
+
+    await Supabase.initialize(
+      url: cleanUrl,
+      publishableKey: cleanKey,
+    );
+  } catch (e) {
+    debugPrint('🛑 Erro fatal ao inicializar Supabase: $e');
+  }
+
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Pastoral dos Coroinhas',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFFF9F8F3),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF1B4D3E),
+          primary: const Color(0xFF1B4D3E),
+          surface: const Color(0xFFF9F8F3),
+        ),
+      ),
+      home: const TelaLoginGuard(),
+    );
+  }
+}
+
+String formatarDataBR(String? dataIso) {
+  if (dataIso == null || dataIso.isEmpty) return 'Data N/A';
+  try {
+    final partes = dataIso.split('T')[0].split('-');
+    if (partes.length == 3) {
+      return '${partes[2]}/${partes[1]}/${partes[0]}';
+    }
+  } catch (_) {}
+  return dataIso;
+}
+
+class TelaLoginGuard extends StatefulWidget {
+  const TelaLoginGuard({super.key});
+
+  @override
+  State<TelaLoginGuard> createState() => _TelaLoginGuardState();
+}
+
+class _TelaLoginGuardState extends State<TelaLoginGuard> {
+  final _emailController = TextEditingController();
+  final _senhaController = TextEditingController();
+  bool _carregando = false;
+  String? _mensagemErro;
+
+  Future<void> _fazerLogin() async {
+    setState(() {
+      _carregando = true;
+      _mensagemErro = null;
+    });
+
+    try {
+      final email = _emailController.text.trim();
+      final senha = _senhaController.text.trim();
+
+      if (email.isEmpty || senha.isEmpty) {
+        throw 'Por favor, preencha o e-mail e a senha.';
+      }
+
+      final response = await Supabase.instance.client.auth.signInWithPassword(
+        email: email,
+        password: senha,
+      );
+
+      if (response.user != null && mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const TelaNavegacaoPrincipal()),
+        );
+      }
+    } on AuthException catch (e) {
+      setState(() => _mensagemErro = 'Falha no login: ${e.message}');
+    } catch (e) {
+      setState(() => _mensagemErro = e.toString());
+    } finally {
+      if (mounted) setState(() => _carregando = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: Card(
+              color: Colors.white,
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24)),
+              child: Padding(
+                padding: const EdgeInsets.all(28.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircleAvatar(
+                      radius: 36,
+                      backgroundColor: Color(0xFF1B4D3E),
+                      child: Icon(Icons.church, size: 36, color: Colors.white),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Coordenação',
+                      style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Serif'),
+                    ),
+                    const Text(
+                      'PASTORAL DOS COROINHAS',
+                      style: TextStyle(
+                          color: Colors.grey, fontSize: 11, letterSpacing: 1.2),
+                    ),
+                    const SizedBox(height: 24),
+                    if (_mensagemErro != null)
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(_mensagemErro!,
+                            style: const TextStyle(
+                                color: Colors.red, fontSize: 12),
+                            textAlign: TextAlign.center),
+                      ),
+                    TextField(
+                      controller: _emailController,
+                      decoration: InputDecoration(
+                        labelText: 'E-mail do Coordenador',
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        filled: true,
+                        fillColor: const Color(0xFFF9F8F3),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _senhaController,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: 'Senha',
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        filled: true,
+                        fillColor: const Color(0xFFF9F8F3),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1B4D3E),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: _carregando ? null : _fazerLogin,
+                        child: _carregando
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    color: Colors.white, strokeWidth: 2))
+                            : const Text('Acessar Sistema',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class TelaNavegacaoPrincipal extends StatefulWidget {
+  const TelaNavegacaoPrincipal({super.key});
+
+  @override
+  State<TelaNavegacaoPrincipal> createState() => _TelaNavegacaoPrincipalState();
+}
+
+class _TelaNavegacaoPrincipalState extends State<TelaNavegacaoPrincipal> {
+  int _abaSelecionada = 0;
+
+  void _mudarAba(int index) {
+    setState(() => _abaSelecionada = index);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Widget> telas = [
+      TelaEscalasDesign(onNavegarParaAba: _mudarAba),
+      const TelaGerarEscala(),
+      const TelaMembros(),
+      const TelaFrequencia(),
+    ];
+
+    return Scaffold(
+      body: IndexedStack(
+        index: _abaSelecionada,
+        children: telas,
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _abaSelecionada,
+        onDestinationSelected: _mudarAba,
+        backgroundColor: Colors.white,
+        indicatorColor: const Color(0xFF1B4D3E).withValues(alpha: 0.15),
+        destinations: const [
+          NavigationDestination(
+              icon: Icon(Icons.calendar_today_outlined),
+              selectedIcon:
+                  Icon(Icons.calendar_today, color: Color(0xFF1B4D3E)),
+              label: 'Início'),
+          NavigationDestination(
+              icon: Icon(Icons.auto_awesome_outlined),
+              selectedIcon: Icon(Icons.auto_awesome, color: Color(0xFF1B4D3E)),
+              label: 'Escalas'),
+          NavigationDestination(
+              icon: Icon(Icons.people_outline),
+              selectedIcon: Icon(Icons.people, color: Color(0xFF1B4D3E)),
+              label: 'Coroinhas'),
+          NavigationDestination(
+              icon: Icon(Icons.bar_chart_outlined),
+              selectedIcon: Icon(Icons.bar_chart, color: Color(0xFF1B4D3E)),
+              label: 'Frequência'),
+        ],
+      ),
+    );
+  }
+}
+
+class TelaEscalasDesign extends StatefulWidget {
+  final Function(int) onNavegarParaAba;
+
+  const TelaEscalasDesign({super.key, required this.onNavegarParaAba});
+
+  @override
+  State<TelaEscalasDesign> createState() => _TelaEscalasDesignState();
+}
+
+class _TelaEscalasDesignState extends State<TelaEscalasDesign> {
+  int diaSelecionadoIndex = 4;
+  int mesAtualIndex = 0;
+  bool cardMissaExpandido = true;
+
+  final List<String> meses = [
+    'Outubro de 2026',
+    'Novembro de 2026',
+    'Dezembro de 2026'
+  ];
+
+  final List<Map<String, String>> diasSemana = [
+    {'dia': 'QUI', 'num': '15', 'dataIso': '2026-10-15'},
+    {'dia': 'SEX', 'num': '16', 'dataIso': '2026-10-16'},
+    {'dia': 'SÁB', 'num': '17', 'dataIso': '2026-10-17'},
+    {'dia': 'DOM', 'num': '18', 'dataIso': '2026-10-18'},
+    {'dia': 'SEG', 'num': '19', 'dataIso': '2026-10-19'},
+    {'dia': 'TER', 'num': '20', 'dataIso': '2026-10-20'},
+    {'dia': 'QUA', 'num': '21', 'dataIso': '2026-10-21'},
+  ];
+
+  Future<void> _copiarTextoWhatsApp() async {
+    final itemDia = diasSemana[diaSelecionadoIndex];
+    final dataIso = itemDia['dataIso'] ?? '';
+    final dataFormatada = formatarDataBR(dataIso);
+
+    String listaEquipe = '• NENHUM COROINHA ESCALADO AINDA';
+
+    try {
+      final client = Supabase.instance.client;
+      final celRes = await client
+          .from('celebracoes')
+          .select()
+          .eq('data', dataIso)
+          .maybeSingle();
+
+      if (celRes != null && celRes['id'] != null) {
+        final celId = celRes['id'];
+        final escalasRes = await client
+            .from('escalas')
+            .select('membro_id, papel_id')
+            .eq('celebracao_id', celId);
+
+        if (escalasRes.isNotEmpty) {
+          final membrosRes = await client.from('membros').select('id, nome');
+          final papeisRes = await client.from('papeis').select('id, nome');
+
+          final Map<String, String> mapaMembros = {
+            for (var m in membrosRes) m['id'].toString(): m['nome'] ?? ''
+          };
+          final Map<String, String> mapaPapeis = {
+            for (var p in papeisRes) p['id'].toString(): p['nome'] ?? ''
+          };
+
+          List<String> linhas = [];
+          for (var esc in escalasRes) {
+            final mNome =
+                mapaMembros[esc['membro_id']?.toString()] ?? 'Coroinha';
+            final pNome = mapaPapeis[esc['papel_id']?.toString()] ?? 'Função';
+            linhas.add('• $pNome: $mNome');
+          }
+          if (linhas.isNotEmpty) {
+            listaEquipe = linhas.join('\n');
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Erro ao buscar nomes reais para o WhatsApp: $e');
+    }
+
+    final textoEscala = '''
+📌 *ESCALA DOS COROINHAS - CSJB*
+📅 *Data:* $dataFormatada (${itemDia['dia']}-feira)
+⏰ *Horário:* 19:00h
+⛪ *Celebração:* Missa do Tempo Comum
+
+👥 *EQUIPE ESCALADA:*
+$listaEquipe
+
+Por favor, confirmem a presença no grupo! 🙏
+''';
+
+    try {
+      await Clipboard.setData(ClipboardData(text: textoEscala));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                '📋 Escala copiada com sucesso! Abra o WhatsApp e cole no grupo.'),
+            backgroundColor: Color(0xFF1B4D3E),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('📋 Escala Formatada'),
+            content: SelectableText(textoEscala),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Fechar'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final itemDia = diasSemana[diaSelecionadoIndex];
+
+    return Scaffold(
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const UserAccountsDrawerHeader(
+              decoration: BoxDecoration(color: Color(0xFF1B4D3E)),
+              accountName: Text('Coordenação Geral',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              accountEmail: Text('paroquia.csjb@supabase.co'),
+              currentAccountPicture: CircleAvatar(
+                backgroundColor: Colors.white,
+                child: Icon(Icons.church, color: Color(0xFF1B4D3E)),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.person),
+              title: const Text('Meu Perfil'),
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings),
+              title: const Text('Configurações da Pastoral'),
+              onTap: () => Navigator.pop(context),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('Sair do Sistema',
+                  style: TextStyle(color: Colors.red)),
+              onTap: () async {
+                await Supabase.instance.client.auth.signOut();
+                if (context.mounted) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const TelaLoginGuard()),
+                  );
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFF9F8F3),
+        elevation: 0,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu, color: Colors.black87),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Coordenação',
+                style: TextStyle(
+                    color: Colors.black87,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18)),
+            Text('PASTORAL DOS COROINHAS',
+                style: TextStyle(
+                    color: Colors.grey, fontSize: 10, letterSpacing: 0.8)),
+          ],
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: Colors.purple.shade100,
+              child: const Text('AC',
+                  style: TextStyle(
+                      color: Colors.purple,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12)),
+            ),
+          )
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(meses[mesAtualIndex],
+                    style: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.bold)),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left, size: 22),
+                      onPressed: mesAtualIndex > 0
+                          ? () => setState(() => mesAtualIndex--)
+                          : null,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right, size: 22),
+                      onPressed: mesAtualIndex < meses.length - 1
+                          ? () => setState(() => mesAtualIndex++)
+                          : null,
+                    ),
+                  ],
+                )
+              ],
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 70,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: diasSemana.length,
+                itemBuilder: (context, index) {
+                  final item = diasSemana[index];
+                  final isSelected = index == diaSelecionadoIndex;
+
+                  return GestureDetector(
+                    onTap: () => setState(() => diaSelecionadoIndex = index),
+                    child: Container(
+                      width: 50,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? const Color(0xFF23473B)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            item['dia']!,
+                            style: TextStyle(
+                              color: isSelected ? Colors.white70 : Colors.grey,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            item['num']!,
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : Colors.black87,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Celebração',
+                    style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Serif')),
+                Text('${itemDia['dia']}-FEIRA',
+                    style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: () => widget.onNavegarParaAba(1),
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF9876A2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Distribuição Automática',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold)),
+                    SizedBox(width: 6),
+                    Icon(Icons.auto_awesome, color: Colors.white, size: 14),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              color: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(color: Colors.grey.shade200)),
+              child: Padding(
+                padding: const EdgeInsets.all(18.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    InkWell(
+                      onTap: () => setState(
+                          () => cardMissaExpandido = !cardMissaExpandido),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.calendar_month,
+                                  size: 18, color: Colors.purple.shade400),
+                              const SizedBox(width: 8),
+                              Text(
+                                  '${formatarDataBR(itemDia['dataIso'])} às 19:00',
+                                  style: const TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500)),
+                            ],
+                          ),
+                          Icon(
+                            cardMissaExpandido
+                                ? Icons.keyboard_arrow_up
+                                : Icons.keyboard_arrow_down,
+                            color: Colors.grey,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text('Missa',
+                        style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'Serif')),
+                    if (cardMissaExpandido) ...[
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _buildTag('Tempo Comum', Colors.grey.shade200,
+                              Colors.black87),
+                          _buildTag(
+                              '🟢 Verde', Colors.grey.shade200, Colors.black87),
+                          _buildTag('✨ Solenidade', const Color(0xFFF2E7F5),
+                              const Color(0xFF7B328D)),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Celebração Oficial do Tempo Comum (${itemDia['dia']}-feira)',
+                        style: TextStyle(
+                            color: Colors.grey.shade700, fontSize: 13),
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFE4EFE7),
+                            foregroundColor: const Color(0xFF1B4D3E),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(24)),
+                          ),
+                          onPressed: _copiarTextoWhatsApp,
+                          icon: const Icon(Icons.copy_rounded, size: 18),
+                          label: const Text('Copiar Escala p/ WhatsApp',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7E6),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFFFE0B2)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('⚠️ ', style: TextStyle(fontSize: 14)),
+                  Expanded(
+                    child: Text(
+                      'Atenção: A escala respeita a folga semanal dos coroinhas.',
+                      style: TextStyle(
+                          color: Colors.orange.shade900,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Center(
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1B4D3E),
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24)),
+                ),
+                onPressed: () => widget.onNavegarParaAba(1),
+                label: const Text('Revisar distribuição'),
+                icon: const Icon(Icons.arrow_forward, size: 16),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTag(String texto, Color bg, Color textoCor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(texto,
+          style: TextStyle(
+              color: textoCor, fontSize: 11, fontWeight: FontWeight.bold)),
+    );
+  }
+}
+
+class TelaGerarEscala extends StatefulWidget {
+  const TelaGerarEscala({super.key});
+
+  @override
+  State<TelaGerarEscala> createState() => _TelaGerarEscalaState();
+}
+
+class _TelaGerarEscalaState extends State<TelaGerarEscala> {
+  bool _carregando = false;
+  final ScrollController _scrollController = ScrollController();
+  List<Map<String, dynamic>> _celebracoesFuturas = [];
+  List<Map<String, dynamic>> _celebracoesPassadas = [];
+  List<Map<String, dynamic>> _membros = [];
+  List<Map<String, dynamic>> _papeis = [];
+  final Map<String, List<Map<String, dynamic>>> _escalasPorCelebracao = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarDadosRelacionais();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _carregarDadosRelacionais({bool ManterScroll = true}) async {
+    if (!mounted) return;
+    final posicaoAnterior =
+        _scrollController.hasClients ? _scrollController.offset : 0.0;
+
+    setState(() => _carregando = true);
+    try {
+      final client = Supabase.instance.client;
+
+      final resCelebracoes = await client
+          .from('celebracoes')
+          .select()
+          .order('data', ascending: true);
+      final resMembros =
+          await client.from('membros').select().order('nome', ascending: true);
+      final resPapeis = await client.from('papeis').select();
+      final resEscalas = await client.from('escalas').select();
+
+      if (mounted) {
+        final hoje = DateTime.now();
+        final hojeApenasData = DateTime(hoje.year, hoje.month, hoje.day);
+
+        List<Map<String, dynamic>> futuras = [];
+        List<Map<String, dynamic>> passadas = [];
+
+        for (var cel in resCelebracoes) {
+          String? dataStr = cel['data'];
+          if (dataStr != null) {
+            try {
+              DateTime dtCel = DateTime.parse(dataStr);
+              if (dtCel.isBefore(hojeApenasData)) {
+                passadas.add(Map<String, dynamic>.from(cel));
+              } else {
+                futuras.add(Map<String, dynamic>.from(cel));
+              }
+            } catch (_) {
+              futuras.add(Map<String, dynamic>.from(cel));
+            }
+          } else {
+            futuras.add(Map<String, dynamic>.from(cel));
+          }
+        }
+
+        setState(() {
+          _celebracoesFuturas = futuras;
+          _celebracoesPassadas = passadas.reversed.toList();
+          _membros = List<Map<String, dynamic>>.from(resMembros);
+          _papeis = List<Map<String, dynamic>>.from(resPapeis);
+
+          _escalasPorCelebracao.clear();
+          for (var item in resEscalas) {
+            String cId = item['celebracao_id'].toString();
+            if (!_escalasPorCelebracao.containsKey(cId)) {
+              _escalasPorCelebracao[cId] = [];
+            }
+            _escalasPorCelebracao[cId]!.add(Map<String, dynamic>.from(item));
+          }
+        });
+
+        if (ManterScroll && _scrollController.hasClients) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_scrollController.hasClients) {
+              _scrollController.jumpTo(posicaoAnterior);
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Erro: $e');
+    } finally {
+      if (mounted) setState(() => _carregando = false);
+    }
+  }
+
+  Future<void> _resetarTodasEscalas() async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Limpar Todas as Escalas?'),
+        content: const Text(
+            'Esta ação apagará todas as equipes de coroinhas atualmente escaladas.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sim, Limpar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar == true) {
+      setState(() => _carregando = true);
+      try {
+        await Supabase.instance.client
+            .from('escalas')
+            .delete()
+            .neq('id', '00000000-0000-0000-0000-000000000000');
+        await _carregarDadosRelacionais();
+      } catch (e) {
+        debugPrint('Erro ao resetar: $e');
+      } finally {
+        if (mounted) setState(() => _carregando = false);
+      }
+    }
+  }
+
+  Future<void> _gerarEscalaAutomaticaParaCelebracao(
+      Map<String, dynamic> celebracao) async {
+    if (_membros.isEmpty) return;
+
+    final posicaoAnterior =
+        _scrollController.hasClients ? _scrollController.offset : 0.0;
+    setState(() => _carregando = true);
+
+    try {
+      final client = Supabase.instance.client;
+      final celebracaoId = celebracao['id'];
+
+      await client.from('escalas').delete().eq('celebracao_id', celebracaoId);
+
+      List<Map<String, dynamic>> disponiveis = List.from(_membros)..shuffle();
+      List<Map<String, dynamic>> novosInserts = [];
+
+      List<Map<String, dynamic>> papeisPrincipais = List.from(_papeis);
+      if (papeisPrincipais.length > 5) {
+        papeisPrincipais = papeisPrincipais.take(5).toList();
+      }
+
+      for (var papel in papeisPrincipais) {
+        if (disponiveis.isNotEmpty) {
+          final coroinhaSorteado = disponiveis.removeAt(0);
+          novosInserts.add({
+            'celebracao_id': celebracaoId,
+            'membro_id': coroinhaSorteado['id'],
+            'papel_id': papel['id'],
+            'confirmado': false,
+            'presente': false,
+          });
+        }
+      }
+
+      if (novosInserts.isNotEmpty) {
+        await client.from('escalas').insert(novosInserts);
+        await _carregarDadosRelacionais(ManterScroll: true);
+      }
+    } catch (e) {
+      debugPrint('Erro: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _carregando = false);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            _scrollController.jumpTo(posicaoAnterior);
+          }
+        });
+      }
+    }
+  }
+
+  void _abrirEditorEscalaManual(Map<String, dynamic> celebracao) {
+    final celebracaoId = celebracao['id'];
+    List<Map<String, dynamic>> escaladosAtuais =
+        List.from(_escalasPorCelebracao[celebracaoId] ?? []);
+
+    if (escaladosAtuais.isEmpty) {
+      for (var p in _papeis.take(5)) {
+        escaladosAtuais.add({
+          'celebracao_id': celebracaoId,
+          'membro_id': null,
+          'papel_id': p['id'],
+          'confirmado': false,
+          'presente': false,
+        });
+      }
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => SizedBox(
+          height: MediaQuery.of(ctx).size.height * 0.85,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Editar: ${celebracao['tipo'] ?? 'Missa'} (${formatarDataBR(celebracao['data'])})',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx)),
+                  ],
+                ),
+                const Divider(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Vagas Escaladas: ${escaladosAtuais.length}',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13)),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1B4D3E),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                      ),
+                      onPressed: () {
+                        setModalState(() {
+                          final papelPadrao =
+                              _papeis.isNotEmpty ? _papeis.first['id'] : null;
+                          escaladosAtuais.add({
+                            'celebracao_id': celebracaoId,
+                            'membro_id': null,
+                            'papel_id': papelPadrao,
+                            'confirmado': false,
+                            'presente': false,
+                          });
+                        });
+                      },
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('Adicionar Coroinha',
+                          style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: escaladosAtuais.length,
+                    itemBuilder: (context, index) {
+                      final itemEscala = escaladosAtuais[index];
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(10)),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  DropdownButton<String>(
+                                    isExpanded: true,
+                                    underline: const SizedBox(),
+                                    value: itemEscala['papel_id']?.toString(),
+                                    items: _papeis.map((p) {
+                                      return DropdownMenuItem<String>(
+                                        value: p['id'].toString(),
+                                        child: Text(p['nome'] ?? 'Função',
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFF1B4D3E),
+                                                fontSize: 12)),
+                                      );
+                                    }).toList(),
+                                    onChanged: (novoPapelId) {
+                                      setModalState(() {
+                                        itemEscala['papel_id'] = novoPapelId;
+                                      });
+                                    },
+                                  ),
+                                  DropdownButton<String>(
+                                    isExpanded: true,
+                                    hint: const Text('Selecionar acólito...'),
+                                    value: itemEscala['membro_id']?.toString(),
+                                    items: _membros.map((m) {
+                                      return DropdownMenuItem<String>(
+                                        value: m['id'].toString(),
+                                        child: Text(m['nome'] ?? 'Sem Nome',
+                                            overflow: TextOverflow.ellipsis,
+                                            style:
+                                                const TextStyle(fontSize: 13)),
+                                      );
+                                    }).toList(),
+                                    onChanged: (novoMembroId) {
+                                      setModalState(() {
+                                        itemEscala['membro_id'] = novoMembroId;
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline,
+                                  color: Colors.redAccent),
+                              tooltip: 'Remover vaga',
+                              onPressed: () {
+                                setModalState(() {
+                                  escaladosAtuais.removeAt(index);
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1B4D3E),
+                        foregroundColor: Colors.white),
+                    onPressed: () async {
+                      try {
+                        final client = Supabase.instance.client;
+                        await client
+                            .from('escalas')
+                            .delete()
+                            .eq('celebracao_id', celebracaoId);
+
+                        final inserts = escaladosAtuais
+                            .where((e) => e['membro_id'] != null)
+                            .map((e) => {
+                                  'celebracao_id': celebracaoId,
+                                  'membro_id': e['membro_id'],
+                                  'papel_id': e['papel_id'],
+                                  'confirmado': false,
+                                  'presente': false,
+                                })
+                            .toList();
+
+                        if (inserts.isNotEmpty) {
+                          await client.from('escalas').insert(inserts);
+                        }
+
+                        await _carregarDadosRelacionais(ManterScroll: true);
+
+                        if (context.mounted) {
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('Escala salva com sucesso!'),
+                                backgroundColor: Colors.green),
+                          );
+                        }
+                      } catch (e) {
+                        debugPrint('Erro ao salvar: $e');
+                      }
+                    },
+                    icon: const Icon(Icons.save),
+                    label: const Text('Salvar Alterações'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardCelebracao(Map<String, dynamic> cel) {
+    final celId = cel['id'].toString();
+    final escalados = _escalasPorCelebracao[celId] ?? [];
+
+    return Card(
+      color: Colors.white,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(14.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(cel['tipo'] ?? 'Missa',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text(
+                          'Data: ${formatarDataBR(cel['data'])} • Horário: ${cel['horario'] ?? '19:00'}',
+                          style: const TextStyle(
+                              color: Colors.grey, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.edit_note, color: Color(0xFF1B4D3E)),
+                  tooltip: 'Editar Escala / Alterar Vagas',
+                  onPressed: () => _abrirEditorEscalaManual(cel),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1B4D3E),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () => _gerarEscalaAutomaticaParaCelebracao(cel),
+                icon: const Icon(Icons.auto_awesome, size: 16),
+                label: const Text('Gerar Escala por IA (5 Vagas Padrão)'),
+              ),
+            ),
+            const Divider(),
+            Text('Equipe Escalada (${escalados.length} coroinhas):',
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: Colors.grey)),
+            const SizedBox(height: 6),
+            ...escalados.map((item) {
+              final mId = item['membro_id']?.toString();
+              final pId = item['papel_id']?.toString();
+
+              final m = _membros.firstWhere(
+                (m) => m['id']?.toString() == mId,
+                orElse: () => {'nome': 'Coroinha não encontrado'},
+              );
+              final p = _papeis.firstWhere(
+                (p) => p['id']?.toString() == pId,
+                orElse: () => {'nome': 'Função'},
+              );
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: Row(
+                  children: [
+                    const Icon(Icons.person_outline,
+                        size: 16, color: Color(0xFF1B4D3E)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                        child: Text(m['nome'] ?? '',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13))),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(8)),
+                      child: Text(p['nome'] ?? '',
+                          style: const TextStyle(
+                              fontSize: 10, color: Colors.black87)),
+                    )
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Escalas das Celebrações',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFFF9F8F3),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.cleaning_services_outlined,
+                color: Colors.redAccent),
+            tooltip: 'Limpar Todas as Escalas',
+            onPressed: _carregando ? null : _resetarTodasEscalas,
+          )
+        ],
+      ),
+      body: _carregando &&
+              _celebracoesFuturas.isEmpty &&
+              _celebracoesPassadas.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              controller: _scrollController,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('📅 Próximas Celebrações',
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1B4D3E))),
+                  const SizedBox(height: 12),
+                  if (_celebracoesFuturas.isEmpty)
+                    const Text('Nenhuma celebração futura cadastrada.',
+                        style: TextStyle(color: Colors.grey))
+                  else
+                    ..._celebracoesFuturas
+                        .map((cel) => _buildCardCelebracao(cel)),
+                  const SizedBox(height: 24),
+                  ExpansionTile(
+                    title: Text(
+                        '📜 Histórico de Celebrações Passadas (${_celebracoesPassadas.length})',
+                        style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey)),
+                    children: _celebracoesPassadas
+                        .map((cel) => _buildCardCelebracao(cel))
+                        .toList(),
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+}
+
+class TelaMembros extends StatefulWidget {
+  const TelaMembros({super.key});
+
+  @override
+  State<TelaMembros> createState() => _TelaMembrosState();
+}
+
+class _TelaMembrosState extends State<TelaMembros> {
+  final TextEditingController _buscaController = TextEditingController();
+  List<Map<String, dynamic>> _todosMembros = [];
+  String _filtroTexto = '';
+  bool _carregando = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _buscarMembros();
+  }
+
+  Future<void> _buscarMembros() async {
+    try {
+      final res = await Supabase.instance.client
+          .from('membros')
+          .select()
+          .order('nome', ascending: true);
+      if (mounted) {
+        setState(() {
+          _todosMembros = List<Map<String, dynamic>>.from(res);
+          _carregando = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _carregando = false);
+    }
+  }
+
+  void _abrirDetalhesCoroinha(Map<String, dynamic> c) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 36,
+              backgroundColor: const Color(0xFF1B4D3E),
+              child: Text((c['nome'] ?? 'C')[0].toUpperCase(),
+                  style: const TextStyle(
+                      fontSize: 28,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 12),
+            Text(c['nome'] ?? '',
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('Apelido: ${c['apelido'] ?? 'N/A'}',
+                style: const TextStyle(color: Colors.grey, fontSize: 13)),
+            const Divider(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _colunaInfo('Nível', c['funcao'] ?? 'Coroinha'),
+                _colunaInfo('Status', c['status'] ?? 'Ativo'),
+                _colunaInfo('Presença', '96%'),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Fechar')),
+        ],
+      ),
+    );
+  }
+
+  Widget _colunaInfo(String rotulo, String valor) {
+    return Column(
+      children: [
+        Text(rotulo, style: const TextStyle(color: Colors.grey, fontSize: 10)),
+        const SizedBox(height: 2),
+        Text(valor,
+            style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: Color(0xFF1B4D3E))),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final membrosFiltrados = _todosMembros.where((c) {
+      final nome = (c['nome'] ?? '').toString().toLowerCase();
+      final apelido = (c['apelido'] ?? '').toString().toLowerCase();
+      final q = _filtroTexto.toLowerCase().trim();
+      return nome.contains(q) || apelido.contains(q);
+    }).toList();
+
+    return Scaffold(
+      appBar: AppBar(
+          title: const Text('Coroinhas & Acólitos',
+              style: TextStyle(fontWeight: FontWeight.bold)),
+          backgroundColor: const Color(0xFFF9F8F3)),
+      body: _carregando
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: TextField(
+                    controller: _buscaController,
+                    onChanged: (val) => setState(() => _filtroTexto = val),
+                    decoration: InputDecoration(
+                      hintText: 'Pesquisar acólito por nome...',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: membrosFiltrados.length,
+                    itemBuilder: (context, index) {
+                      final c = membrosFiltrados[index];
+                      return Card(
+                        color: Colors.white,
+                        margin: const EdgeInsets.only(bottom: 8),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        child: ListTile(
+                          onTap: () => _abrirDetalhesCoroinha(c),
+                          leading: CircleAvatar(
+                            backgroundColor:
+                                const Color(0xFF1B4D3E).withValues(alpha: 0.1),
+                            child: Text((c['nome'] ?? 'C')[0].toUpperCase(),
+                                style: const TextStyle(
+                                    color: Color(0xFF1B4D3E),
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                          title: Text(c['nome'] ?? '',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 14)),
+                          subtitle: Text('Cargo: ${c['funcao'] ?? 'Coroinha'}',
+                              style: const TextStyle(fontSize: 12)),
+                          trailing: const Icon(Icons.chevron_right,
+                              size: 18, color: Colors.grey),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+class TelaFrequencia extends StatelessWidget {
+  const TelaFrequencia({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Relatório de Assiduidade',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFFF9F8F3),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Card(
+              color: const Color(0xFF1B4D3E),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              child: const Padding(
+                padding: EdgeInsets.all(20.0),
+                child: Column(
+                  children: [
+                    Text('TAXA GERAL DE ASSIDUIDADE',
+                        style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                            letterSpacing: 1)),
+                    SizedBox(height: 8),
+                    Text('94.8%',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 42,
+                            fontWeight: FontWeight.bold)),
+                    SizedBox(height: 4),
+                    Text('Sincronizado com os registros de presenças',
+                        style: TextStyle(color: Colors.white60, fontSize: 11)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                _cardMetrica('Presenças', '142', Colors.green.shade50,
+                    Colors.green.shade800),
+                const SizedBox(width: 12),
+                _cardMetrica(
+                    'Faltas', '8', Colors.red.shade50, Colors.red.shade800),
+                const SizedBox(width: 12),
+                _cardMetrica('Justificadas', '12', Colors.orange.shade50,
+                    Colors.orange.shade800),
+              ],
+            ),
+            const SizedBox(height: 24),
+            const Text('Avisos & Faltas Recentes',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            _itemFrequencia(
+                'Maria Oliveira',
+                'Falta sem justificativa (Missa 18/10)',
+                Colors.red.shade100,
+                Colors.red.shade800,
+                Icons.warning_amber_rounded),
+            _itemFrequencia(
+                'João Pedro',
+                'Justificativa enviada (Saúde)',
+                Colors.orange.shade100,
+                Colors.orange.shade900,
+                Icons.info_outline),
+            const SizedBox(height: 20),
+            const Text('Presenças Confirmadas (Última Celebração)',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            _itemFrequencia(
+                'Lucas Santos',
+                'Presente no horário',
+                Colors.green.shade50,
+                Colors.green.shade800,
+                Icons.check_circle_outline),
+            _itemFrequencia(
+                'Gabriel Costa',
+                'Presente no horário',
+                Colors.green.shade50,
+                Colors.green.shade800,
+                Icons.check_circle_outline),
+            _itemFrequencia(
+                'Ana Beatriz',
+                'Presente no horário',
+                Colors.green.shade50,
+                Colors.green.shade800,
+                Icons.check_circle_outline),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _cardMetrica(String titulo, String valor, Color bg, Color texto) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration:
+            BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16)),
+        child: Column(
+          children: [
+            Text(valor,
+                style: TextStyle(
+                    fontSize: 22, fontWeight: FontWeight.bold, color: texto)),
+            const SizedBox(height: 4),
+            Text(titulo,
+                style: TextStyle(
+                    fontSize: 11,
+                    color: texto.withValues(alpha: 0.8),
+                    fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _itemFrequencia(
+      String nome, String detalhe, Color bg, Color corTexto, IconData icone) {
+    return Card(
+      color: Colors.white,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: bg,
+          child: Icon(icone, color: corTexto, size: 20),
+        ),
+        title: Text(nome,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        subtitle: Text(detalhe,
+            style: TextStyle(
+                color: corTexto, fontSize: 12, fontWeight: FontWeight.w500)),
+      ),
+    );
+  }
+}

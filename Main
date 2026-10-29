@@ -3,9 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SupabaseConfig {
-  static const String url = 'https://hniqvfsauldcwujlpzuo.supabase.co';
+  static const String url = '';
   static const String publishableKey =
-      'sb_publishable_kvR2UON1jz8GEgKT6ULG6Q_g1o70mr8';
+      '';
 }
 
 void main() async {
